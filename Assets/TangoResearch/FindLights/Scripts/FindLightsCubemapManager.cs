@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System;
 
-public class FindLightAdvManager : MonoBehaviour, ITangoVideoOverlay, ITangoLifecycle
+public class FindLightsCubemapManager : MonoBehaviour, ITangoVideoOverlay, ITangoLifecycle
 {
 
     public enum SuperpixelMethod { SLIC, CWATERSHED, NONE };
@@ -45,7 +45,7 @@ public class FindLightAdvManager : MonoBehaviour, ITangoVideoOverlay, ITangoLife
     public RenderTexture _Mesh3DTexture;
     public Texture2D _AlbedoTexture;
     public Texture2D _ErrorTexture;
-    
+
 
     private TangoUnityImageData _lastImageBuffer = null;
 
@@ -128,7 +128,6 @@ public class FindLightAdvManager : MonoBehaviour, ITangoVideoOverlay, ITangoLife
 
         _SliderResDiv.maxValue = _sliderResLevelMax;
         _SliderClusterCount.maxValue = _sliderClusterCountMax;
-
     }
 
     private void onValueChangedDebugLightXo(float value)
@@ -505,117 +504,16 @@ public class FindLightAdvManager : MonoBehaviour, ITangoVideoOverlay, ITangoLife
         //_IoMat.mainTexture = _AlbedoTexture;
     }
 
-    private List<Vector3> candidateLightDirections(Vector3[,] negX, Vector3[,] posX,
-        Vector3[,] negY, Vector3[,] posY,
-        Vector3[,] negZ, Vector3[,] posZ,
-        Vector3 camPos)
-    {
-        List<Vector3> candidateDirections = new List<Vector3>(6);
-
-        Vector2 b = ImageProcessing.BrightestPoint(posZ);
-        posZ[(int)b.x, (int)b.y] = ImageProcessing.ColorToVector3(Color.blue);
-        Vector3 dir = new Vector3(
-            b.x / _cubeMap.width - 0.5f,
-            b.y / _cubeMap.height - 0.5f,
-            0.5f) - camPos;
-        dir.Normalize();
-        candidateDirections.Add(dir);
-
-        b = ImageProcessing.BrightestPoint(negZ);
-        negZ[(int)b.x, (int)b.y] = ImageProcessing.ColorToVector3(Color.blue);
-        dir = new Vector3(
-            b.x / _cubeMap.width - 0.5f,
-            b.y / _cubeMap.height - 0.5f,
-            -0.5f) - camPos;
-        dir.Normalize();
-        candidateDirections.Add(dir);
-
-        b = ImageProcessing.BrightestPoint(posX);
-        posX[(int)b.x, (int)b.y] = ImageProcessing.ColorToVector3(Color.red);
-        dir = new Vector3(
-            0.5f,
-            b.y / _cubeMap.height - 0.5f,
-            b.x / _cubeMap.width - 0.5f) - camPos;
-        dir.Normalize();
-        candidateDirections.Add(dir);
-
-        b = ImageProcessing.BrightestPoint(negX);
-        negX[(int)b.x, (int)b.y] = ImageProcessing.ColorToVector3(Color.red);
-        dir = new Vector3(
-            -0.5f,
-            b.y / _cubeMap.height - 0.5f,
-            b.x / _cubeMap.width - 0.5f) - camPos;
-        dir.Normalize();
-        candidateDirections.Add(dir);
-
-        b = ImageProcessing.BrightestPoint(posY);
-        posY[(int)b.x, (int)b.y] = ImageProcessing.ColorToVector3(Color.green);
-        dir = new Vector3(
-            b.x / _cubeMap.width - 0.5f,
-            0.5f,
-            b.y / _cubeMap.height - 0.5f) - camPos;
-        dir.Normalize();
-        candidateDirections.Add(dir);
-
-        b = ImageProcessing.BrightestPoint(negY);
-        negY[(int)b.x, (int)b.y] = ImageProcessing.ColorToVector3(Color.green);
-        dir = new Vector3(
-            b.x / _cubeMap.width - 0.5f,
-            -0.5f,
-            b.y / _cubeMap.height - 0.5f) - camPos;
-        dir.Normalize();
-        candidateDirections.Add(dir);
-
-        //Debug.DrawRay(camPos, dir * 5, Color.cyan, 10f);
-        //Debug.Log(b + " " + dir);
-        return candidateDirections;
-    }
-
-    public Cubemap _cubeMap;
+    private Cubemap _cubeMap;
     private void doLightEstimationCubemap()
     {
-
-        GameObject go = new GameObject("CubemapCam");
-        go.AddComponent<Camera>();
-        go.transform.position = Camera.main.transform.position;
-        go.transform.rotation = Camera.main.transform.rotation;
-        go.GetComponent<Camera>().cullingMask = Camera.main.cullingMask;
-
-        if (!go.GetComponent<Camera>().RenderToCubemap(_cubeMap))
-        {
-            DestroyImmediate(go);
-            return;
-        }
-
-        Vector3[,] negX = ImageProcessing.CubemapFaceTo2DVector3Array(_cubeMap, CubemapFace.NegativeX);
-        Vector3[,] posX = ImageProcessing.CubemapFaceTo2DVector3Array(_cubeMap, CubemapFace.PositiveX);
-        Vector3[,] negZ = ImageProcessing.CubemapFaceTo2DVector3Array(_cubeMap, CubemapFace.NegativeZ);
-        Vector3[,] posZ = ImageProcessing.CubemapFaceTo2DVector3Array(_cubeMap, CubemapFace.PositiveZ);
-        Vector3[,] negY = ImageProcessing.CubemapFaceTo2DVector3Array(_cubeMap, CubemapFace.NegativeY);
-        Vector3[,] posY = ImageProcessing.CubemapFaceTo2DVector3Array(_cubeMap, CubemapFace.PositiveY);
-
-        List<Vector3> lightDirs = candidateLightDirections(negX, posX, negY, posY, negZ, posZ, go.transform.position);
-
-        Debug.DrawRay(go.transform.position, lightDirs[0] * 5, Color.blue, 10f);
-        Debug.DrawRay(go.transform.position, lightDirs[1] * 5, Color.blue, 10f);
-        Debug.DrawRay(go.transform.position, lightDirs[2] * 5, Color.red, 10f);
-        Debug.DrawRay(go.transform.position, lightDirs[3] * 5, Color.red, 10f);
-        Debug.DrawRay(go.transform.position, lightDirs[4] * 5, Color.green, 10f);
-        Debug.DrawRay(go.transform.position, lightDirs[5] * 5, Color.green, 10f);
-
-        for (int i = 0; i < _AlbedoTexture.width; i++)
-        {
-            for (int j = 0; j < _AlbedoTexture.height; j++)
-            {
-                int x = (int)(i * (_cubeMap.width / (float)_AlbedoTexture.width));
-                int y = (int)(j * (_cubeMap.height / (float)_AlbedoTexture.height));
-                _AlbedoTexture.SetPixel(i, j, ImageProcessing.Vector3ToColor( posZ[x, y]));
-            }
-        }
-
-        _RawImageScreen.texture = _AlbedoTexture;
-        _AlbedoTexture.Apply();
-        DestroyImmediate(go);
+        Camera.main.RenderToCubemap(_cubeMap);
+        Vector3[,] negX = ImageProcessing.CubemapFaceToRGBArray(_cubeMap, CubemapFace.NegativeX);
+        Vector3[,] posX = ImageProcessing.CubemapFaceToRGBArray(_cubeMap, CubemapFace.PositiveX);
+        Vector3[,] negZ = ImageProcessing.CubemapFaceToRGBArray(_cubeMap, CubemapFace.NegativeZ);
+        Vector3[,] posZ = ImageProcessing.CubemapFaceToRGBArray(_cubeMap, CubemapFace.PositiveZ);
+        Vector3[,] negY = ImageProcessing.CubemapFaceToRGBArray(_cubeMap, CubemapFace.NegativeY);
+        Vector3[,] posY = ImageProcessing.CubemapFaceToRGBArray(_cubeMap, CubemapFace.PositiveY);
     }
 
     private void doLightEstimation()
@@ -683,8 +581,7 @@ public class FindLightAdvManager : MonoBehaviour, ITangoVideoOverlay, ITangoLife
 
     private void superpixelSegmentation()
     {
-        doLightEstimationCubemap();
-        return;
+
         switch (_CurSuperpixelMethod)
         {
             case SuperpixelMethod.SLIC:
