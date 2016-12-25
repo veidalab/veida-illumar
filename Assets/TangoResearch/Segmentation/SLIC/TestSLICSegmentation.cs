@@ -7,8 +7,13 @@ public class VectorInt2
 {
     public int X;
     public int Y;
+    private VectorInt2 vectorInt2;
 
     public VectorInt2()
+    {
+    }
+
+    public VectorInt2(VectorInt2 vectorInt2) : this(vectorInt2.X, vectorInt2.Y)
     {
     }
 
@@ -16,6 +21,11 @@ public class VectorInt2
     {
         X = x;
         Y = y;
+    }
+
+    public override string ToString()
+    {
+        return this.X + ", " + this.Y;
     }
 
     public override bool Equals(object obj)

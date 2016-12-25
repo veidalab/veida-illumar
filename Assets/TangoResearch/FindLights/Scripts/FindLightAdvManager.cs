@@ -505,6 +505,26 @@ public class FindLightAdvManager : MonoBehaviour, ITangoVideoOverlay, ITangoLife
         //_IoMat.mainTexture = _AlbedoTexture;
     }
 
+    private VectorInt2 ShortestEdge(ref List<Vector3> verts, VectorInt2[] edges)
+    {
+        VectorInt2 result = new VectorInt2();
+
+        float minDist = float.MaxValue;
+        for (int i = 0; i < edges.Length; i++)
+        {
+            float cur = Vector3.Distance(verts[edges[i].X], verts[edges[i].Y]);
+            
+            if (cur < minDist)
+            {
+                minDist = cur;
+                result = new VectorInt2(edges[i]);
+            }
+            //Debug.Log("(" + i + ") " + cur + " result: " + result.ToString());
+        }
+
+        return result;
+    }
+
     private List<Vector3> candidateLightDirections(Vector3[,] negX, Vector3[,] posX,
         Vector3[,] negY, Vector3[,] posY,
         Vector3[,] negZ, Vector3[,] posZ,
@@ -512,39 +532,16 @@ public class FindLightAdvManager : MonoBehaviour, ITangoVideoOverlay, ITangoLife
     {
         List<Vector3> candidateDirections = new List<Vector3>(6);
 
-        Vector2 b = ImageProcessing.BrightestPoint(posZ);
-        posZ[(int)b.x, (int)b.y] = ImageProcessing.ColorToVector3(Color.blue);
-        Vector3 dir = new Vector3(
-            b.x / _cubeMap.width - 0.5f,
-            b.y / _cubeMap.height - 0.5f,
-            0.5f) - camPos;
-        dir.Normalize();
-        candidateDirections.Add(dir);
+        Vector2 b = new Vector2();
+        Vector3 dir = new Vector3();
 
-        b = ImageProcessing.BrightestPoint(negZ);
-        negZ[(int)b.x, (int)b.y] = ImageProcessing.ColorToVector3(Color.blue);
-        dir = new Vector3(
-            b.x / _cubeMap.width - 0.5f,
-            b.y / _cubeMap.height - 0.5f,
-            -0.5f) - camPos;
-        dir.Normalize();
-        candidateDirections.Add(dir);
-
+        // Positive directions.
         b = ImageProcessing.BrightestPoint(posX);
         posX[(int)b.x, (int)b.y] = ImageProcessing.ColorToVector3(Color.red);
         dir = new Vector3(
             0.5f,
             b.y / _cubeMap.height - 0.5f,
-            b.x / _cubeMap.width - 0.5f) - camPos;
-        dir.Normalize();
-        candidateDirections.Add(dir);
-
-        b = ImageProcessing.BrightestPoint(negX);
-        negX[(int)b.x, (int)b.y] = ImageProcessing.ColorToVector3(Color.red);
-        dir = new Vector3(
-            -0.5f,
-            b.y / _cubeMap.height - 0.5f,
-            b.x / _cubeMap.width - 0.5f) - camPos;
+            (1f - b.x / _cubeMap.width) - 0.5f) - camPos;
         dir.Normalize();
         candidateDirections.Add(dir);
 
@@ -553,7 +550,27 @@ public class FindLightAdvManager : MonoBehaviour, ITangoVideoOverlay, ITangoLife
         dir = new Vector3(
             b.x / _cubeMap.width - 0.5f,
             0.5f,
-            b.y / _cubeMap.height - 0.5f) - camPos;
+            (1f - b.y / _cubeMap.height) - 0.5f) - camPos;
+        dir.Normalize();
+        candidateDirections.Add(dir);
+
+        b = ImageProcessing.BrightestPoint(posZ);
+        posZ[(int)b.x, (int)b.y] = ImageProcessing.ColorToVector3(Color.blue);
+        dir = new Vector3(
+            b.x / _cubeMap.width - 0.5f,
+            b.y / _cubeMap.height - 0.5f,
+            0.5f) - camPos;
+        dir.Normalize();
+        candidateDirections.Add(dir);
+
+
+        // Negative directions.
+        b = ImageProcessing.BrightestPoint(negX);
+        negX[(int)b.x, (int)b.y] = ImageProcessing.ColorToVector3(Color.red);
+        dir = new Vector3(
+            -0.5f,
+            b.y / _cubeMap.height - 0.5f,
+            b.x / _cubeMap.width - 0.5f) - camPos;
         dir.Normalize();
         candidateDirections.Add(dir);
 
@@ -566,6 +583,16 @@ public class FindLightAdvManager : MonoBehaviour, ITangoVideoOverlay, ITangoLife
         dir.Normalize();
         candidateDirections.Add(dir);
 
+        b = ImageProcessing.BrightestPoint(negZ);
+        negZ[(int)b.x, (int)b.y] = ImageProcessing.ColorToVector3(Color.blue);
+        dir = new Vector3(
+            (1f - b.x / _cubeMap.width) - 0.5f,
+            b.y / _cubeMap.height - 0.5f,
+            -0.5f) - camPos;
+        dir.Normalize();
+        candidateDirections.Add(dir);
+
+
         //Debug.DrawRay(camPos, dir * 5, Color.cyan, 10f);
         //Debug.Log(b + " " + dir);
         return candidateDirections;
@@ -574,6 +601,14 @@ public class FindLightAdvManager : MonoBehaviour, ITangoVideoOverlay, ITangoLife
     public Cubemap _cubeMap;
     private void doLightEstimationCubemap()
     {
+
+        Vector3[,] pixels = ImageProcessing.RenderTextureToRGBArray(_Cam3DMesh.targetTexture);
+        List<RegionPixel> rpixels = RegionPixel.ToRegionPixels(pixels);
+        foreach (RegionPixel r in rpixels)
+        {
+            r.ComputeImageIntensity();
+            r.ComputeSurfaceNormal(_ErrorTexture.width, _ErrorTexture.height);
+        }
 
         GameObject go = new GameObject("CubemapCam");
         go.AddComponent<Camera>();
@@ -596,25 +631,68 @@ public class FindLightAdvManager : MonoBehaviour, ITangoVideoOverlay, ITangoLife
 
         List<Vector3> lightDirs = candidateLightDirections(negX, posX, negY, posY, negZ, posZ, go.transform.position);
 
-        Debug.DrawRay(go.transform.position, lightDirs[0] * 5, Color.blue, 10f);
-        Debug.DrawRay(go.transform.position, lightDirs[1] * 5, Color.blue, 10f);
-        Debug.DrawRay(go.transform.position, lightDirs[2] * 5, Color.red, 10f);
-        Debug.DrawRay(go.transform.position, lightDirs[3] * 5, Color.red, 10f);
-        Debug.DrawRay(go.transform.position, lightDirs[4] * 5, Color.green, 10f);
-        Debug.DrawRay(go.transform.position, lightDirs[5] * 5, Color.green, 10f);
-
-        for (int i = 0; i < _AlbedoTexture.width; i++)
+        VectorInt2[] edges = 
         {
-            for (int j = 0; j < _AlbedoTexture.height; j++)
-            {
-                int x = (int)(i * (_cubeMap.width / (float)_AlbedoTexture.width));
-                int y = (int)(j * (_cubeMap.height / (float)_AlbedoTexture.height));
-                _AlbedoTexture.SetPixel(i, j, ImageProcessing.Vector3ToColor( posZ[x, y]));
-            }
+            new VectorInt2(0,1), new VectorInt2(0,2), new VectorInt2(0,4), new VectorInt2(0,5),
+            new VectorInt2(1,2), new VectorInt2(1,3), new VectorInt2(1,5),
+            new VectorInt2(2,3), new VectorInt2(2,4),
+            new VectorInt2(3,4), new VectorInt2(3,5),
+            new VectorInt2(4,5)
+        };
+        VectorInt2 sEdge = ShortestEdge(ref lightDirs, edges);
+        Debug.DrawRay(lightDirs[sEdge.X]*10, (lightDirs[sEdge.Y] - lightDirs[sEdge.X]).normalized *5* Vector3.Distance(lightDirs[sEdge.Y], lightDirs[sEdge.X]), Color.black);
+
+        Debug.DrawRay(go.transform.position, lightDirs[0] * 5, Color.red);
+        Debug.DrawRay(go.transform.position, lightDirs[1] * 5, Color.green);
+        Debug.DrawRay(go.transform.position, lightDirs[2] * 5, Color.blue);
+        Debug.DrawRay(go.transform.position, lightDirs[3] * 5, Color.red);
+        Debug.DrawRay(go.transform.position, lightDirs[4] * 5, Color.green);
+        Debug.DrawRay(go.transform.position, lightDirs[5] * 5, Color.blue);
+
+        for (int i = 0; i < lightDirs.Count; i++)
+        {
+            lightDirs[i] *= 5f;
         }
 
-        _RawImageScreen.texture = _AlbedoTexture;
-        _AlbedoTexture.Apply();
+
+        //_FLA._EstimatedLightPos = _FLA.LightEstimation(ref rpixels, _ErrorTexture.width, _ErrorTexture.height, ref lightDirs);
+        //_DebugPointLight.transform.position = _FLA._EstimatedLightPos;
+        _DebugPointLight.transform.position = (lightDirs[sEdge.X] + lightDirs[sEdge.Y]) / 2f;
+
+        //for (int i = 0; i < _AlbedoTexture.width; i++)
+        //{
+        //    for (int j = 0; j < _AlbedoTexture.height; j++)
+        //    {
+        //        int x = (int)(i * (_cubeMap.width / (float)_AlbedoTexture.width));
+        //        int y = (int)(j * (_cubeMap.height / (float)_AlbedoTexture.height));
+        //        _AlbedoTexture.SetPixel(i, j, ImageProcessing.Vector3ToColor( posZ[x, y]));
+        //    }
+        //}
+
+        //_RawImageScreen.texture = _AlbedoTexture;
+        //_AlbedoTexture.Apply();
+
+        switch (_CurScreenMode)
+        {
+            case ScreenMode.MESH3D:
+                _RawImageScreen.texture = _Mesh3DTexture;
+                break;
+            case ScreenMode.ALBEDO:
+                _RawImageScreen.texture = _AlbedoTexture;
+                _AlbedoTexture.Apply();
+                break;
+            case ScreenMode.ERROR:
+                _RawImageScreen.texture = _ErrorTexture;
+                _ErrorTexture.Apply();
+                break;
+            case ScreenMode.RESULT:
+                _RawImageScreen.texture = _InTexture;
+                break;
+            default:
+                break;
+        }
+
+
         DestroyImmediate(go);
     }
 

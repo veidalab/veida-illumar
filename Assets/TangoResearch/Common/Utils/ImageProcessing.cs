@@ -95,7 +95,7 @@ public static class ImageProcessing {
         {
             for (int j = 0; j < cubeMap.height; j++)
             {
-                c2[i, j] = ColorToVector3( c[j * cubeMap.width + i] );
+                c2[i, cubeMap.height - j - 1] = ColorToVector3( c[j * cubeMap.width + i] );
             }
         }
 

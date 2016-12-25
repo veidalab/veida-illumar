@@ -94,6 +94,35 @@ public class FindLightAdvanced : MonoBehaviour {
         return minLightPos;
     }
 
+    public Vector3 LightEstimation(ref List<RegionPixel> pixels, int textureWidth, int textureHeight, ref List<Vector3> candidateDir)
+    {
+        float minError = float.MaxValue;
+        Vector3 minLightPos = Vector3.zero;
+        float[] Io = new float[pixels.Count];
+
+        for (int i = 0; i < pixels.Count; i++)
+        {
+            Io[i] = pixels[i].Intensity / 255f;
+        }
+
+        for (int i = 0; i < candidateDir.Count; i++)
+        {
+            Vector3 lightPos = candidateDir[i];
+
+            float error = IoIrL2Norm(ref pixels, Io, lightPos, textureWidth, textureHeight);
+
+            Debug.Log("LightPos: " + lightPos + " error: " + error);
+
+            if (error < minError)
+            {
+                minError = error;
+                minLightPos = lightPos;
+            }
+        }
+
+        Debug.Log("LightPos: " + minLightPos + " error: " + minError);
+        return minLightPos;
+    }
 
     public static float IoIrL2Norm(ref List<Superpixel> superpixels, float[] Io, Vector3 lightPos, int textureWidth, int textureHeight)
     {
@@ -166,7 +195,8 @@ public class FindLightAdvanced : MonoBehaviour {
             }
             else
             {
-                ir = Io[i];
+                ir = 0;
+                //ir = Io[i];
             }
 
             Ir[i] = ir;
