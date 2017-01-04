@@ -124,6 +124,50 @@ public class FindLightAdvanced : MonoBehaviour {
         return minLightPos;
     }
 
+    /// <summary>
+    /// Estimates the light depth.
+    /// </summary>
+    /// <param name="pixels">The pixels of the current frame.</param>
+    /// <param name="textureWidth">Width of the texture.</param>
+    /// <param name="textureHeight">Height of the texture.</param>
+    /// <param name="origin">The origin (Camera position).</param>
+    /// <param name="direction">The normalized light direction.</param>
+    /// <param name="maxDepth">The maximum light depth.</param>
+    /// <returns></returns>
+    public Vector3 EstimateLightDepth(ref List<RegionPixel> pixels, int textureWidth, int textureHeight, Vector3 origin, Vector3 direction, float maxDepth = 10f)
+    {
+        float minError = float.MaxValue;
+        Vector3 result = origin;
+        float[] Io = new float[pixels.Count];
+
+        for (int i = 0; i < pixels.Count; i++)
+        {
+            Io[i] = pixels[i].Intensity / 255f;
+        }
+
+        int t = 1;
+        for (int i = 1; i <= maxDepth; i++)
+        {
+            Vector3 curDepth = direction * i;
+
+            float error = IoIrL2Norm(ref pixels, Io, curDepth, textureWidth, textureHeight);
+
+            //Debug.Log(i + ": LightPos: " + curDepth + " Error: " + error);
+
+            if (error < minError)
+            {
+                minError = error;
+                result = curDepth;
+                t = i;
+            }
+
+        }
+
+        //Debug.Log(t + ": LightPos: " + result);
+
+        return result;
+    }
+
     public static float IoIrL2Norm(ref List<Superpixel> superpixels, float[] Io, Vector3 lightPos, int textureWidth, int textureHeight)
     {
         float[] Ir = new float[superpixels.Count];
@@ -195,8 +239,8 @@ public class FindLightAdvanced : MonoBehaviour {
             }
             else
             {
-                ir = 0;
-                //ir = Io[i];
+                //ir = 0;
+                ir = Io[i];
             }
 
             Ir[i] = ir;

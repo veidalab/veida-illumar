@@ -3,8 +3,6 @@ using System.Collections;
 using UnityEngine.UI;
 using Tango;
 using System.Collections.Generic;
-using System.Threading;
-using System;
 
 public class FindLightAdvManager : MonoBehaviour, ITangoVideoOverlay, ITangoLifecycle
 {
@@ -21,11 +19,13 @@ public class FindLightAdvManager : MonoBehaviour, ITangoVideoOverlay, ITangoLife
     public Toggle _ToggleSLIC;
     public Toggle _ToggleCWatershed;
     public Toggle _ToggleDebugLights;
+    public Toggle _ToggleLightMode;
 
     public Toggle _ToggleScreenMesh3D;
     public Toggle _ToggleScreenAlbedo;
     public Toggle _ToggleScreenError;
     public Toggle _ToggleScreenResult;
+    
 
     public Slider _SliderClusterCount;
     public Slider _SliderResDiv;
@@ -68,8 +68,10 @@ public class FindLightAdvManager : MonoBehaviour, ITangoVideoOverlay, ITangoLife
 
     private bool _debuggingLightPos = false;
     private bool _realtime = false;
+    private bool _pointLight = true;
 
     public Camera _Cam3DMesh;
+    public Camera _CamSim;
     //public Material _ResultMat;
     //public Material _IoMat;
     public Transform _DebugLightOriginal;
@@ -82,11 +84,13 @@ public class FindLightAdvManager : MonoBehaviour, ITangoVideoOverlay, ITangoLife
         _ToggleSLIC.onValueChanged.AddListener(value => onValueChangedSuperpixelMethod(value, SuperpixelMethod.SLIC));
         _ToggleCWatershed.onValueChanged.AddListener(value => onValueChangedSuperpixelMethod(value, SuperpixelMethod.CWATERSHED));
         _ToggleDebugLights.onValueChanged.AddListener(value => onValueChangedDebugLights(value));
+        _ToggleLightMode.onValueChanged.AddListener(value => onValueChangedLightMode(value));
 
         _ToggleScreenAlbedo.onValueChanged.AddListener(value => onValueChangedScreenMode(ScreenMode.ALBEDO));
         _ToggleScreenError.onValueChanged.AddListener(value => onValueChangedScreenMode(ScreenMode.ERROR));
         _ToggleScreenMesh3D.onValueChanged.AddListener(value => onValueChangedScreenMode(ScreenMode.MESH3D));
         _ToggleScreenResult.onValueChanged.AddListener(value => onValueChangedScreenMode(ScreenMode.RESULT));
+
 
         _SliderResDiv.onValueChanged.AddListener(onValueChangedResDiv);
         _SliderClusterCount.onValueChanged.AddListener(onValueChangedClusterCount);
@@ -110,6 +114,10 @@ public class FindLightAdvManager : MonoBehaviour, ITangoVideoOverlay, ITangoLife
         _AlbedoTexture.filterMode = FilterMode.Point;
         _AlbedoTexture.mipMapBias = 0;
 
+        _CamSim.targetTexture = new RenderTexture(1280, 720, 16, RenderTextureFormat.ARGB32);
+        _CamSim.targetTexture.filterMode = FilterMode.Bilinear;
+        _CamSim.targetTexture.mipMapBias = 0;
+
         _Cam3DMesh.targetTexture = new RenderTexture((int)(1280 / (float)_ResDiv), (int)(720 / (float)_ResDiv), 16, RenderTextureFormat.ARGB32);
         _Cam3DMesh.targetTexture.filterMode = FilterMode.Bilinear;
         _Cam3DMesh.targetTexture.mipMapBias = 0;
@@ -129,6 +137,13 @@ public class FindLightAdvManager : MonoBehaviour, ITangoVideoOverlay, ITangoLife
         _SliderResDiv.maxValue = _sliderResLevelMax;
         _SliderClusterCount.maxValue = _sliderClusterCountMax;
 
+    }
+
+    private void onValueChangedLightMode(bool value)
+    {
+        _pointLight = value;
+
+        _DebugPointLight.GetComponent<Light>().type = (_pointLight) ? LightType.Point : LightType.Directional;
     }
 
     private void onValueChangedDebugLightXo(float value)
@@ -276,6 +291,10 @@ public class FindLightAdvManager : MonoBehaviour, ITangoVideoOverlay, ITangoLife
         _AlbedoTexture = new Texture2D((int)(1280 / (float)_ResDiv), (int)(720 / (float)_ResDiv));
         _AlbedoTexture.filterMode = FilterMode.Point;
         _AlbedoTexture.mipMapBias = 0;
+
+        _CamSim.targetTexture = new RenderTexture((int)(1280 / (float)_ResDiv), (int)(720 / (float)_ResDiv), 16, RenderTextureFormat.ARGB32);
+        _CamSim.targetTexture.filterMode = FilterMode.Bilinear;
+        _CamSim.targetTexture.mipMapBias = 0;
 
         _Cam3DMesh.targetTexture = new RenderTexture((int)(1280 / (float)_ResDiv), (int)(720 / (float)_ResDiv), 16, RenderTextureFormat.ARGB32);
         _Cam3DMesh.targetTexture.filterMode = FilterMode.Bilinear;
@@ -505,14 +524,18 @@ public class FindLightAdvManager : MonoBehaviour, ITangoVideoOverlay, ITangoLife
         //_IoMat.mainTexture = _AlbedoTexture;
     }
 
-    private VectorInt2 ShortestEdge(ref List<Vector3> verts, VectorInt2[] edges)
+    private VectorInt2 SmallestAngle(ref List<Vector3> verts, VectorInt2[] edges)
     {
         VectorInt2 result = new VectorInt2();
 
         float minDist = float.MaxValue;
         for (int i = 0; i < edges.Length; i++)
         {
-            float cur = Vector3.Distance(verts[edges[i].X], verts[edges[i].Y]);
+            if (verts[edges[i].X] == Vector3.zero || verts[edges[i].Y] == Vector3.zero)
+                continue;
+
+            //float cur = Vector3.Distance(verts[edges[i].X], verts[edges[i].Y]);
+            float cur = Vector3.Angle(verts[edges[i].X], verts[edges[i].Y]);
             
             if (cur < minDist)
             {
@@ -531,70 +554,98 @@ public class FindLightAdvManager : MonoBehaviour, ITangoVideoOverlay, ITangoLife
         Vector3 camPos)
     {
         List<Vector3> candidateDirections = new List<Vector3>(6);
+        float[] faceIntensity = new float[6];
 
         Vector2 b = new Vector2();
         Vector3 dir = new Vector3();
 
+        float faceAve = 0f;
+        float cubeAve = 0f;
+
         // Positive directions.
-        b = ImageProcessing.BrightestPoint(posX);
+        b = ImageProcessing.BrightestPoint(posX, out faceAve);
         posX[(int)b.x, (int)b.y] = ImageProcessing.ColorToVector3(Color.red);
         dir = new Vector3(
             0.5f,
             b.y / _cubeMap.height - 0.5f,
             (1f - b.x / _cubeMap.width) - 0.5f) - camPos;
         dir.Normalize();
+        dir *= ImageProcessing.Grayscale(ImageProcessing.Vector3ToColor(posX[(int)b.x, (int)b.y])) / 1f;
         candidateDirections.Add(dir);
+        cubeAve += faceAve;
+        faceIntensity[0] = faceAve;
 
-        b = ImageProcessing.BrightestPoint(posY);
+        b = ImageProcessing.BrightestPoint(posY, out faceAve);
         posY[(int)b.x, (int)b.y] = ImageProcessing.ColorToVector3(Color.green);
         dir = new Vector3(
             b.x / _cubeMap.width - 0.5f,
             0.5f,
             (1f - b.y / _cubeMap.height) - 0.5f) - camPos;
         dir.Normalize();
+        dir *= ImageProcessing.Grayscale(ImageProcessing.Vector3ToColor(posX[(int)b.x, (int)b.y])) / 1f;
         candidateDirections.Add(dir);
+        cubeAve += faceAve;
+        faceIntensity[1] = faceAve;
 
-        b = ImageProcessing.BrightestPoint(posZ);
+        b = ImageProcessing.BrightestPoint(posZ, out faceAve);
         posZ[(int)b.x, (int)b.y] = ImageProcessing.ColorToVector3(Color.blue);
         dir = new Vector3(
             b.x / _cubeMap.width - 0.5f,
             b.y / _cubeMap.height - 0.5f,
             0.5f) - camPos;
         dir.Normalize();
+        dir *= ImageProcessing.Grayscale(ImageProcessing.Vector3ToColor(posX[(int)b.x, (int)b.y])) / 1f;
         candidateDirections.Add(dir);
-
+        cubeAve += faceAve;
+        faceIntensity[2] = faceAve;
 
         // Negative directions.
-        b = ImageProcessing.BrightestPoint(negX);
+        b = ImageProcessing.BrightestPoint(negX, out faceAve);
         negX[(int)b.x, (int)b.y] = ImageProcessing.ColorToVector3(Color.red);
         dir = new Vector3(
             -0.5f,
             b.y / _cubeMap.height - 0.5f,
             b.x / _cubeMap.width - 0.5f) - camPos;
         dir.Normalize();
+        dir *= ImageProcessing.Grayscale(ImageProcessing.Vector3ToColor(posX[(int)b.x, (int)b.y])) / 1f;
         candidateDirections.Add(dir);
+        cubeAve += faceAve;
+        faceIntensity[3] = faceAve;
 
-        b = ImageProcessing.BrightestPoint(negY);
+        b = ImageProcessing.BrightestPoint(negY, out faceAve);
         negY[(int)b.x, (int)b.y] = ImageProcessing.ColorToVector3(Color.green);
         dir = new Vector3(
             b.x / _cubeMap.width - 0.5f,
             -0.5f,
             b.y / _cubeMap.height - 0.5f) - camPos;
         dir.Normalize();
+        dir *= ImageProcessing.Grayscale(ImageProcessing.Vector3ToColor(posX[(int)b.x, (int)b.y])) / 1f;
         candidateDirections.Add(dir);
+        cubeAve += faceAve;
+        faceIntensity[4] = faceAve;
 
-        b = ImageProcessing.BrightestPoint(negZ);
+        b = ImageProcessing.BrightestPoint(negZ, out faceAve);
         negZ[(int)b.x, (int)b.y] = ImageProcessing.ColorToVector3(Color.blue);
         dir = new Vector3(
             (1f - b.x / _cubeMap.width) - 0.5f,
             b.y / _cubeMap.height - 0.5f,
             -0.5f) - camPos;
         dir.Normalize();
+        dir *= ImageProcessing.Grayscale(ImageProcessing.Vector3ToColor(posX[(int)b.x, (int)b.y])) / 1f;
         candidateDirections.Add(dir);
+        cubeAve += faceAve;
+        faceIntensity[5] = faceAve;
 
+        cubeAve /= 6f;
 
-        //Debug.DrawRay(camPos, dir * 5, Color.cyan, 10f);
-        //Debug.Log(b + " " + dir);
+        for (int i = 0; i < 6; i++)
+        {
+            if (faceIntensity[i] < cubeAve)
+            {
+                candidateDirections[i] = Vector3.zero;
+            }
+        }
+
         return candidateDirections;
     }
 
@@ -639,8 +690,35 @@ public class FindLightAdvManager : MonoBehaviour, ITangoVideoOverlay, ITangoLife
             new VectorInt2(3,4), new VectorInt2(3,5),
             new VectorInt2(4,5)
         };
-        VectorInt2 sEdge = ShortestEdge(ref lightDirs, edges);
-        Debug.DrawRay(lightDirs[sEdge.X]*10, (lightDirs[sEdge.Y] - lightDirs[sEdge.X]).normalized *5* Vector3.Distance(lightDirs[sEdge.Y], lightDirs[sEdge.X]), Color.black);
+        VectorInt2 sEdge = SmallestAngle(ref lightDirs, edges);
+
+        float smallestAngle = Vector3.Angle(lightDirs[sEdge.X], lightDirs[sEdge.Y]);
+        Debug.Log("Shortest Angle: " + smallestAngle);
+        Vector3 estimatedDir = Vector3.zero;
+        if (smallestAngle > 90f)
+        {
+            int index = 0;
+            float max = float.MinValue;
+            for (int i = 0; i < 6; i++)
+            {
+                float cur = lightDirs[i].magnitude;
+                if (cur > max)
+                {
+                    max = cur;
+                    index = i;
+                }
+            }
+            estimatedDir = lightDirs[index].normalized;
+        }
+        else
+        {
+            estimatedDir = ((lightDirs[sEdge.X] + lightDirs[sEdge.Y]) / 2f).normalized;
+        }
+
+
+        Debug.DrawRay(lightDirs[sEdge.X]*5, 
+            (lightDirs[sEdge.Y] - lightDirs[sEdge.X]).normalized *5* Vector3.Distance(lightDirs[sEdge.Y], lightDirs[sEdge.X]), 
+            Color.black);
 
         Debug.DrawRay(go.transform.position, lightDirs[0] * 5, Color.red);
         Debug.DrawRay(go.transform.position, lightDirs[1] * 5, Color.green);
@@ -649,28 +727,24 @@ public class FindLightAdvManager : MonoBehaviour, ITangoVideoOverlay, ITangoLife
         Debug.DrawRay(go.transform.position, lightDirs[4] * 5, Color.green);
         Debug.DrawRay(go.transform.position, lightDirs[5] * 5, Color.blue);
 
-        for (int i = 0; i < lightDirs.Count; i++)
-        {
-            lightDirs[i] *= 5f;
-        }
-
-
-        //_FLA._EstimatedLightPos = _FLA.LightEstimation(ref rpixels, _ErrorTexture.width, _ErrorTexture.height, ref lightDirs);
-        //_DebugPointLight.transform.position = _FLA._EstimatedLightPos;
-        _DebugPointLight.transform.position = (lightDirs[sEdge.X] + lightDirs[sEdge.Y]) / 2f;
-
-        //for (int i = 0; i < _AlbedoTexture.width; i++)
+        //for (int i = 0; i < lightDirs.Count; i++)
         //{
-        //    for (int j = 0; j < _AlbedoTexture.height; j++)
-        //    {
-        //        int x = (int)(i * (_cubeMap.width / (float)_AlbedoTexture.width));
-        //        int y = (int)(j * (_cubeMap.height / (float)_AlbedoTexture.height));
-        //        _AlbedoTexture.SetPixel(i, j, ImageProcessing.Vector3ToColor( posZ[x, y]));
-        //    }
+        //    //lightDirs[i] *= 5f;
+        //    lightDirs[i] = lightDirs[i].normalized;
         //}
 
-        //_RawImageScreen.texture = _AlbedoTexture;
-        //_AlbedoTexture.Apply();
+        
+
+        if (_pointLight)
+        {
+            _FLA._EstimatedLightPos = _FLA.EstimateLightDepth(ref rpixels, _ErrorTexture.width, _ErrorTexture.height, go.transform.position, estimatedDir, 6);
+            _DebugPointLight.transform.position = _FLA._EstimatedLightPos;
+        }
+        else
+        {
+            _DebugPointLight.position = estimatedDir.normalized * 100;
+            _DebugPointLight.LookAt(go.transform.position);
+        }
 
         switch (_CurScreenMode)
         {
@@ -686,13 +760,11 @@ public class FindLightAdvManager : MonoBehaviour, ITangoVideoOverlay, ITangoLife
                 _ErrorTexture.Apply();
                 break;
             case ScreenMode.RESULT:
-                _RawImageScreen.texture = _InTexture;
+                _RawImageScreen.texture = _CamSim.targetTexture;
                 break;
             default:
                 break;
         }
-
-
         DestroyImmediate(go);
     }
 

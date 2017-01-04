@@ -123,9 +123,10 @@ public static class ImageProcessing {
         return p;
     }
 
-    public static Vector2 BrightestPoint(Vector3[,] c)
+    public static Vector2 BrightestPoint(Vector3[,] c, out float average)
     {
         Vector2 p = Vector3.zero;
+        average = 0f;
 
         float max = 0;
         for (int i = 0; i < c.GetLength(0); i++)
@@ -133,6 +134,7 @@ public static class ImageProcessing {
             for (int j = 0; j < c.GetLength(1); j++)
             {
                 float cur = Grayscale(c[i, j]);
+                average += cur;
                 if (cur > max)
                 {
                     max = cur;
@@ -140,6 +142,7 @@ public static class ImageProcessing {
                 }
             }
         }
+        average /= c.GetLength(0) * c.GetLength(1);
 
         return p;
     }
