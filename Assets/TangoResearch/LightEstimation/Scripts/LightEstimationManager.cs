@@ -550,7 +550,8 @@ public class LightEstimationManager : MonoBehaviour, ITangoVideoOverlay, ITangoL
 
             //float cur = Vector3.Distance(verts[edges[i].X], verts[edges[i].Y]);
             float cur = Vector3.Angle(verts[edges[i].X], verts[edges[i].Y]);
-            
+            cur /= (verts[edges[i].X].magnitude + verts[edges[i].Y].magnitude) / 2f;
+
             if (cur < minDist)
             {
                 minDist = cur;
@@ -560,6 +561,74 @@ public class LightEstimationManager : MonoBehaviour, ITangoVideoOverlay, ITangoL
         }
 
         return result;
+    }
+
+    private Vector3[] estimateLightSourceTwo(Cubemap cubeMap, Vector3 camPos)
+    {
+        Vector3[,] negX = ImageProcessing.CubemapFaceTo2DVector3Array(cubeMap, CubemapFace.NegativeX);
+        Vector3[,] posX = ImageProcessing.CubemapFaceTo2DVector3Array(cubeMap, CubemapFace.PositiveX);
+        Vector3[,] negZ = ImageProcessing.CubemapFaceTo2DVector3Array(cubeMap, CubemapFace.NegativeZ);
+        Vector3[,] posZ = ImageProcessing.CubemapFaceTo2DVector3Array(cubeMap, CubemapFace.PositiveZ);
+        Vector3[,] negY = ImageProcessing.CubemapFaceTo2DVector3Array(cubeMap, CubemapFace.NegativeY);
+        Vector3[,] posY = ImageProcessing.CubemapFaceTo2DVector3Array(cubeMap, CubemapFace.PositiveY);
+
+        List<Vector3> lightDirs = LightEstimation.CandidateLightDirections(negX, posX, negY, posY, negZ, posZ,
+            camPos, new Vector2(cubeMap.width, cubeMap.height));
+
+        VectorInt2[] edges =
+        {
+            new VectorInt2(0,1), new VectorInt2(0,2), new VectorInt2(0,4), new VectorInt2(0,5),
+            new VectorInt2(1,2), new VectorInt2(1,3), new VectorInt2(1,5),
+            new VectorInt2(2,3), new VectorInt2(2,4),
+            new VectorInt2(3,4), new VectorInt2(3,5),
+            new VectorInt2(4,5)
+        };
+        VectorInt2 sEdge = SmallestAngle(ref lightDirs, edges);
+
+        float smallestAngle = Vector3.Angle(lightDirs[sEdge.X], lightDirs[sEdge.Y]);
+        Debug.Log("Shortest Angle: " + smallestAngle);
+        //Vector3 estimatedDir = Vector3.zero;
+
+        Vector3[] estimatedDirs = new Vector3[2];
+        if (smallestAngle > 22.5f)
+        {
+            int first = 0;
+            int second = 0;
+            float max = float.MinValue;
+            for (int i = 0; i < 6; i++)
+            {
+                float cur = lightDirs[i].magnitude;
+                if (cur > max)
+                {
+                    max = cur;
+                    second = first;
+                    first = i;
+                }
+            }
+            //estimatedDir = lightDirs[first].normalized;
+            estimatedDirs[0] = lightDirs[first].normalized;
+            estimatedDirs[1] = lightDirs[second].normalized;
+            //_DebugPointLightB.gameObject.SetActive(true);
+        }
+        else
+        {
+            estimatedDirs[0] = ((lightDirs[sEdge.X] + lightDirs[sEdge.Y]) / 2f).normalized;
+            _DebugPointLightB.gameObject.SetActive(false);
+        }
+
+
+        Debug.DrawRay(lightDirs[sEdge.X] * 5,
+            (lightDirs[sEdge.Y] - lightDirs[sEdge.X]).normalized * 5 * Vector3.Distance(lightDirs[sEdge.Y], lightDirs[sEdge.X]),
+            Color.black);
+
+        Debug.DrawRay(camPos, lightDirs[0] * 5, Color.red);
+        Debug.DrawRay(camPos, lightDirs[1] * 5, Color.green);
+        Debug.DrawRay(camPos, lightDirs[2] * 5, Color.blue);
+        Debug.DrawRay(camPos, lightDirs[3] * 5, Color.red);
+        Debug.DrawRay(camPos, lightDirs[4] * 5, Color.green);
+        Debug.DrawRay(camPos, lightDirs[5] * 5, Color.blue);
+
+        return estimatedDirs;
     }
 
     public Cubemap _cubeMap;
@@ -578,6 +647,7 @@ public class LightEstimationManager : MonoBehaviour, ITangoVideoOverlay, ITangoL
         go.AddComponent<Camera>();
         go.transform.position = Camera.main.transform.position;
         go.transform.rotation = Camera.main.transform.rotation;
+        go.transform.Rotate(0, 45, 0);
         go.GetComponent<Camera>().cullingMask = 1 << 10 | 1 << 11;
 
         if (!go.GetComponent<Camera>().RenderToCubemap(_cubeMap))
@@ -586,68 +656,70 @@ public class LightEstimationManager : MonoBehaviour, ITangoVideoOverlay, ITangoL
             return;
         }
 
-        Vector3[,] negX = ImageProcessing.CubemapFaceTo2DVector3Array(_cubeMap, CubemapFace.NegativeX);
-        Vector3[,] posX = ImageProcessing.CubemapFaceTo2DVector3Array(_cubeMap, CubemapFace.PositiveX);
-        Vector3[,] negZ = ImageProcessing.CubemapFaceTo2DVector3Array(_cubeMap, CubemapFace.NegativeZ);
-        Vector3[,] posZ = ImageProcessing.CubemapFaceTo2DVector3Array(_cubeMap, CubemapFace.PositiveZ);
-        Vector3[,] negY = ImageProcessing.CubemapFaceTo2DVector3Array(_cubeMap, CubemapFace.NegativeY);
-        Vector3[,] posY = ImageProcessing.CubemapFaceTo2DVector3Array(_cubeMap, CubemapFace.PositiveY);
+        Vector3[] estimatedDirs = estimateLightSourceTwo(_cubeMap, go.transform.position);
 
-        List<Vector3> lightDirs = _FLA.CandidateLightDirections(negX, posX, negY, posY, negZ, posZ, 
-            go.transform.position, new Vector2(_cubeMap.width, _cubeMap.height));
+        //Vector3[,] negX = ImageProcessing.CubemapFaceTo2DVector3Array(_cubeMap, CubemapFace.NegativeX);
+        //Vector3[,] posX = ImageProcessing.CubemapFaceTo2DVector3Array(_cubeMap, CubemapFace.PositiveX);
+        //Vector3[,] negZ = ImageProcessing.CubemapFaceTo2DVector3Array(_cubeMap, CubemapFace.NegativeZ);
+        //Vector3[,] posZ = ImageProcessing.CubemapFaceTo2DVector3Array(_cubeMap, CubemapFace.PositiveZ);
+        //Vector3[,] negY = ImageProcessing.CubemapFaceTo2DVector3Array(_cubeMap, CubemapFace.NegativeY);
+        //Vector3[,] posY = ImageProcessing.CubemapFaceTo2DVector3Array(_cubeMap, CubemapFace.PositiveY);
 
-        VectorInt2[] edges = 
-        {
-            new VectorInt2(0,1), new VectorInt2(0,2), new VectorInt2(0,4), new VectorInt2(0,5),
-            new VectorInt2(1,2), new VectorInt2(1,3), new VectorInt2(1,5),
-            new VectorInt2(2,3), new VectorInt2(2,4),
-            new VectorInt2(3,4), new VectorInt2(3,5),
-            new VectorInt2(4,5)
-        };
-        VectorInt2 sEdge = SmallestAngle(ref lightDirs, edges);
+        //List<Vector3> lightDirs = _FLA.CandidateLightDirections(negX, posX, negY, posY, negZ, posZ, 
+        //    go.transform.position, new Vector2(_cubeMap.width, _cubeMap.height));
 
-        float smallestAngle = Vector3.Angle(lightDirs[sEdge.X], lightDirs[sEdge.Y]);
-        Debug.Log("Shortest Angle: " + smallestAngle);
-        //Vector3 estimatedDir = Vector3.zero;
+        //VectorInt2[] edges = 
+        //{
+        //    new VectorInt2(0,1), new VectorInt2(0,2), new VectorInt2(0,4), new VectorInt2(0,5),
+        //    new VectorInt2(1,2), new VectorInt2(1,3), new VectorInt2(1,5),
+        //    new VectorInt2(2,3), new VectorInt2(2,4),
+        //    new VectorInt2(3,4), new VectorInt2(3,5),
+        //    new VectorInt2(4,5)
+        //};
+        //VectorInt2 sEdge = SmallestAngle(ref lightDirs, edges);
 
-        Vector3[] estimatedDirs = new Vector3[2];
-        if (smallestAngle > 45f)
-        {
-            int first = 0;
-            int second = 0;
-            float max = float.MinValue;
-            for (int i = 0; i < 6; i++)
-            {
-                float cur = lightDirs[i].magnitude;
-                if (cur > max)
-                {
-                    max = cur;
-                    second = first;
-                    first = i;
-                }
-            }
-            //estimatedDir = lightDirs[first].normalized;
-            estimatedDirs[0] = lightDirs[first].normalized;
-            estimatedDirs[1] = lightDirs[second].normalized;
-            _DebugPointLightB.gameObject.SetActive(true);
-        }
-        else
-        {
-            estimatedDirs[0] = ((lightDirs[sEdge.X] + lightDirs[sEdge.Y]) / 2f).normalized;
-            _DebugPointLightB.gameObject.SetActive(false);
-        }
+        //float smallestAngle = Vector3.Angle(lightDirs[sEdge.X], lightDirs[sEdge.Y]);
+        //Debug.Log("Shortest Angle: " + smallestAngle);
+        ////Vector3 estimatedDir = Vector3.zero;
+
+        //Vector3[] estimatedDirs = new Vector3[2];
+        //if (smallestAngle > 45f)
+        //{
+        //    int first = 0;
+        //    int second = 0;
+        //    float max = float.MinValue;
+        //    for (int i = 0; i < 6; i++)
+        //    {
+        //        float cur = lightDirs[i].magnitude;
+        //        if (cur > max)
+        //        {
+        //            max = cur;
+        //            second = first;
+        //            first = i;
+        //        }
+        //    }
+        //    //estimatedDir = lightDirs[first].normalized;
+        //    estimatedDirs[0] = lightDirs[first].normalized;
+        //    estimatedDirs[1] = lightDirs[second].normalized;
+        //    _DebugPointLightB.gameObject.SetActive(true);
+        //}
+        //else
+        //{
+        //    estimatedDirs[0] = ((lightDirs[sEdge.X] + lightDirs[sEdge.Y]) / 2f).normalized;
+        //    _DebugPointLightB.gameObject.SetActive(false);
+        //}
 
 
-        Debug.DrawRay(lightDirs[sEdge.X]*5, 
-            (lightDirs[sEdge.Y] - lightDirs[sEdge.X]).normalized *5* Vector3.Distance(lightDirs[sEdge.Y], lightDirs[sEdge.X]), 
-            Color.black);
+        //Debug.DrawRay(lightDirs[sEdge.X]*5, 
+        //    (lightDirs[sEdge.Y] - lightDirs[sEdge.X]).normalized *5* Vector3.Distance(lightDirs[sEdge.Y], lightDirs[sEdge.X]), 
+        //    Color.black);
 
-        Debug.DrawRay(go.transform.position, lightDirs[0] * 5, Color.red);
-        Debug.DrawRay(go.transform.position, lightDirs[1] * 5, Color.green);
-        Debug.DrawRay(go.transform.position, lightDirs[2] * 5, Color.blue);
-        Debug.DrawRay(go.transform.position, lightDirs[3] * 5, Color.red);
-        Debug.DrawRay(go.transform.position, lightDirs[4] * 5, Color.green);
-        Debug.DrawRay(go.transform.position, lightDirs[5] * 5, Color.blue);
+        //Debug.DrawRay(go.transform.position, lightDirs[0] * 5, Color.red);
+        //Debug.DrawRay(go.transform.position, lightDirs[1] * 5, Color.green);
+        //Debug.DrawRay(go.transform.position, lightDirs[2] * 5, Color.blue);
+        //Debug.DrawRay(go.transform.position, lightDirs[3] * 5, Color.red);
+        //Debug.DrawRay(go.transform.position, lightDirs[4] * 5, Color.green);
+        //Debug.DrawRay(go.transform.position, lightDirs[5] * 5, Color.blue);
 
         if (_pointLight)
         {
@@ -669,15 +741,15 @@ public class LightEstimationManager : MonoBehaviour, ITangoVideoOverlay, ITangoL
                 _RawImageScreen.texture = _Cam3DMesh.targetTexture;
                 break;
             case ScreenMode.ALBEDO:
-                for (int i = 0; i < _AlbedoTexture.width; i++)
-                {
-                    for (int j = 0; j < _AlbedoTexture.height; j++)
-                    {
-                        int x = (int)(i * (_cubeMap.width / (float)_AlbedoTexture.width));
-                        int y = (int)(j * (_cubeMap.height / (float)_AlbedoTexture.height));
-                        _AlbedoTexture.SetPixel(i, j, ImageProcessing.Vector3ToColor(posZ[x, y]));
-                    }
-                }
+                //for (int i = 0; i < _AlbedoTexture.width; i++)
+                //{
+                //    for (int j = 0; j < _AlbedoTexture.height; j++)
+                //    {
+                //        int x = (int)(i * (_cubeMap.width / (float)_AlbedoTexture.width));
+                //        int y = (int)(j * (_cubeMap.height / (float)_AlbedoTexture.height));
+                //        _AlbedoTexture.SetPixel(i, j, ImageProcessing.Vector3ToColor(posZ[x, y]));
+                //    }
+                //}
                 _RawImageScreen.texture = _AlbedoTexture;
                 _AlbedoTexture.Apply();
                 break;
