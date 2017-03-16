@@ -264,7 +264,8 @@ public class LightEstimation : MonoBehaviour {
     /// <param name="camPos">The camera position.</param>
     /// <param name="cubemapSize">Size (width and height) of the cubemap.</param>
     /// <returns>A list of six candidate light directions.</returns>
-    public static List<Vector3> CandidateLightDirections(Vector3[,] negX, Vector3[,] posX,
+    public static List<Vector3> CandidateLightDirections(
+        Vector3[,] negX, Vector3[,] posX,
         Vector3[,] negY, Vector3[,] posY,
         Vector3[,] negZ, Vector3[,] posZ,
         Vector3 camPos,
@@ -362,7 +363,7 @@ public class LightEstimation : MonoBehaviour {
                 candidateDirections[i] = Vector3.zero;
             }
 
-            //if (candidateDirections[i].magnitude < 0.5f)
+            //if (candidateDirections[i].magnitude < 0.75f)
             //{
             //    candidateDirections[i] = Vector3.zero;
             //}
@@ -371,5 +372,139 @@ public class LightEstimation : MonoBehaviour {
         return candidateDirections;
     }
 
+    public static List<Vector3> CandidateLightDirections(
+    Vector3[,] negX, Vector3[,] posX,
+    Vector3[,] negY, Vector3[,] posY,
+    Vector3[,] negZ, Vector3[,] posZ,
+    float[,] negXMin, float[,] posXMin,
+    float[,] negYMin, float[,] posYMin,
+    float[,] negZMin, float[,] posZMin,
+    Vector3 camPos,
+    Vector2 cubemapSize)
+    {
+        List<Vector3> candidateDirections = new List<Vector3>(6);
+        float[] faceIntensity = new float[6];
 
+        Vector2 b = new Vector2();
+        Vector3 dir = new Vector3();
+
+        float faceAve = 0f;
+        float cubeAve = 0f;
+
+        // Positive directions.
+        b = ImageProcessing.BrightestPoint(posXMin, out faceAve);
+        //posX[(int)b.x, (int)b.y] = ImageProcessing.ColorToVector3(Color.red);
+        dir = new Vector3(
+            0.5f,
+            b.y / cubemapSize.y - 0.5f,
+            (1f - b.x / cubemapSize.x) - 0.5f);
+        dir.Normalize();
+        dir *= ImageProcessing.Grayscale(ImageProcessing.Vector3ToColor(posX[(int)b.x, (int)b.y])) / 1f;
+        candidateDirections.Add(dir);
+        cubeAve += faceAve;
+        faceIntensity[0] = faceAve;
+
+        b = ImageProcessing.BrightestPoint(posYMin, out faceAve);
+        //posY[(int)b.x, (int)b.y] = ImageProcessing.ColorToVector3(Color.green);
+        dir = new Vector3(
+            b.x / cubemapSize.x - 0.5f,
+            0.5f,
+            (1f - b.y / cubemapSize.y) - 0.5f);
+        dir.Normalize();
+        dir *= ImageProcessing.Grayscale(ImageProcessing.Vector3ToColor(posY[(int)b.x, (int)b.y])) / 1f;
+        candidateDirections.Add(dir);
+        cubeAve += faceAve;
+        faceIntensity[1] = faceAve;
+
+        b = ImageProcessing.BrightestPoint(posZMin, out faceAve);
+        //posZ[(int)b.x, (int)b.y] = ImageProcessing.ColorToVector3(Color.blue);
+        dir = new Vector3(
+            b.x / cubemapSize.x - 0.5f,
+            b.y / cubemapSize.y - 0.5f,
+            0.5f);
+        dir.Normalize();
+        dir *= ImageProcessing.Grayscale(ImageProcessing.Vector3ToColor(posZ[(int)b.x, (int)b.y])) / 1f;
+        candidateDirections.Add(dir);
+        cubeAve += faceAve;
+        faceIntensity[2] = faceAve;
+
+        // Negative directions.
+        b = ImageProcessing.BrightestPoint(negXMin, out faceAve);
+        //negX[(int)b.x, (int)b.y] = ImageProcessing.ColorToVector3(Color.red);
+        dir = new Vector3(
+            -0.5f,
+            b.y / cubemapSize.y - 0.5f,
+            b.x / cubemapSize.x - 0.5f);
+        dir.Normalize();
+        dir *= ImageProcessing.Grayscale(ImageProcessing.Vector3ToColor(negX[(int)b.x, (int)b.y])) / 1f;
+        candidateDirections.Add(dir);
+        cubeAve += faceAve;
+        faceIntensity[3] = faceAve;
+
+        b = ImageProcessing.BrightestPoint(negYMin, out faceAve);
+        //negY[(int)b.x, (int)b.y] = ImageProcessing.ColorToVector3(Color.green);
+        dir = new Vector3(
+            b.x / cubemapSize.x - 0.5f,
+            -0.5f,
+            b.y / cubemapSize.y - 0.5f);
+        dir.Normalize();
+        dir *= ImageProcessing.Grayscale(ImageProcessing.Vector3ToColor(negY[(int)b.x, (int)b.y])) / 1f;
+        candidateDirections.Add(dir);
+        cubeAve += faceAve;
+        faceIntensity[4] = faceAve;
+
+        b = ImageProcessing.BrightestPoint(negZMin, out faceAve);
+        //negZ[(int)b.x, (int)b.y] = ImageProcessing.ColorToVector3(Color.blue);
+        dir = new Vector3(
+            (1f - b.x / cubemapSize.x) - 0.5f,
+            b.y / cubemapSize.y - 0.5f,
+            -0.5f);
+        dir.Normalize();
+        dir *= ImageProcessing.Grayscale(ImageProcessing.Vector3ToColor(negZ[(int)b.x, (int)b.y])) / 1f;
+        candidateDirections.Add(dir);
+        cubeAve += faceAve;
+        faceIntensity[5] = faceAve;
+
+        cubeAve /= 6f;
+
+        for (int i = 0; i < 6; i++)
+        {
+            if (faceIntensity[i] < cubeAve && candidateDirections[i].magnitude < 0.75f)
+            {
+                candidateDirections[i] = Vector3.zero;
+            }
+
+            //if (candidateDirections[i].magnitude < 0.75f)
+            //{
+            //    candidateDirections[i] = Vector3.zero;
+            //}
+        }
+
+        return candidateDirections;
+    }
+
+    public static List<LightInfo> SampleNeighbors(List<Vector3> dirs,
+        Vector3[,] negX, Vector3[,] posX,
+        Vector3[,] negY, Vector3[,] posY,
+        Vector3[,] negZ, Vector3[,] posZ,
+        float degree)
+    {
+        List<LightInfo> result = new List<LightInfo>(dirs.Count);
+
+        for (int i = 0; i < dirs.Count; i++)
+        {
+            if (dirs[i].magnitude < float.Epsilon) { 
+                continue;
+            }
+
+            
+            Vector3 c = TangoCubemap.SampleColorRange(dirs[i].normalized, posX.GetLength(0), degree, posX, negX, posY, negY, posZ, negZ);
+            
+            LightInfo li = new LightInfo(dirs[i], c);
+
+            result.Add(li);
+        }
+
+        return result;
+    }
 }

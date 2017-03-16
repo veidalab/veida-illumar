@@ -147,6 +147,30 @@ public static class ImageProcessing {
         return p;
     }
 
+    public static Vector2 BrightestPoint(float[,] c, out float average)
+    {
+        Vector2 p = Vector3.zero;
+        average = 0f;
+
+        float max = 0;
+        for (int i = 0; i < c.GetLength(0); i++)
+        {
+            for (int j = 0; j < c.GetLength(1); j++)
+            {
+                float cur = c[i, j];
+                average += cur;
+                if (cur > max)
+                {
+                    max = cur;
+                    p = new Vector2(i, j);
+                }
+            }
+        }
+        average /= c.GetLength(0) * c.GetLength(1);
+
+        return p;
+    }
+
     #endregion
 
     #region Converters
