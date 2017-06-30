@@ -1,4 +1,6 @@
-﻿Shader "Unlit/MultiMap"
+﻿// Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
+
+Shader "Unlit/MultiMap"
 {
 	Properties
 	{
@@ -57,7 +59,7 @@
 			v2f vert (appdata v)
 			{
 				v2f o;
-				o.vertex = mul(UNITY_MATRIX_MVP, v.vertex);
+				o.vertex = UnityObjectToClipPos(v.vertex);
 				o.uv = (_UseMap1) ? TRANSFORM_TEX(v.uv, _Map1) : TRANSFORM_TEX(v.uv, _Map2);
 				return o;
 			}
