@@ -1,4 +1,6 @@
-﻿Shader "Unlit/InsideFrustum"
+﻿// Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
+
+Shader "Unlit/InsideFrustum"
 {
 	Properties
 	{
@@ -49,7 +51,7 @@
 			v2f vert (appdata v)
 			{
 				v2f o;
-				o.vertex = mul(UNITY_MATRIX_MVP, v.vertex);
+				o.vertex = UnityObjectToClipPos(v.vertex);
 				o.uv = TRANSFORM_TEX(v.uv, _MainTex);
 				//bool visible = in_frustum(mul(UNITY_MATRIX_P, _MVTargetCam), v.vertex);
 				bool visible = in_frustum(_MVTargetCam, v.vertex);

@@ -25,20 +25,6 @@ public class TangoCubemap : MonoBehaviour
     public Vector3[,] _posZ;
     public Vector3[,] _negZ;
 
-    public Vector3[,] _posX45;
-    public Vector3[,] _negX45;
-    public Vector3[,] _posY45;
-    public Vector3[,] _negY45;
-    public Vector3[,] _posZ45;
-    public Vector3[,] _negZ45;
-
-    public float[,] _posXMin;
-    public float[,] _negXMin;
-    public float[,] _posYMin;
-    public float[,] _negYMin;
-    public float[,] _posZMin;
-    public float[,] _negZMin;
-
     private int _dirtyPixels = 0;
     private float _fillPercentage = 0f;
     private bool _paused = false;
@@ -82,72 +68,26 @@ public class TangoCubemap : MonoBehaviour
         _posZ = GetNew2DArray(_CubeSize, _CubeSize, new Vector3(-1, -1, -1));
         _negZ = GetNew2DArray(_CubeSize, _CubeSize, new Vector3(-1, -1, -1));
 
-        _posXMin = GetNew2DArray(_CubeSize, _CubeSize, float.MaxValue);
-        _negXMin = GetNew2DArray(_CubeSize, _CubeSize, float.MaxValue);
-        _posYMin = GetNew2DArray(_CubeSize, _CubeSize, float.MaxValue);
-        _negYMin = GetNew2DArray(_CubeSize, _CubeSize, float.MaxValue);
-        _posZMin = GetNew2DArray(_CubeSize, _CubeSize, float.MaxValue);
-        _negZMin = GetNew2DArray(_CubeSize, _CubeSize, float.MaxValue);
 
-        _posX45 = new Vector3[_CubeSize, _CubeSize];
-        _negX45 = new Vector3[_CubeSize, _CubeSize];
-        _posY45 = new Vector3[_CubeSize, _CubeSize];
-        _negY45 = new Vector3[_CubeSize, _CubeSize];
-        _posZ45 = new Vector3[_CubeSize, _CubeSize];
-        _negZ45 = new Vector3[_CubeSize, _CubeSize];
-
-        _ButtonClear.onClick.AddListener(onClickClear);
-        _ButtonCapture.onClick.AddListener(onClickCapture);
-        _ButtonExport.onClick.AddListener(onClickButtonExport);
-        _TogglePause.onValueChanged.AddListener(value => onValueChangedPause(value));
-
-        //Debug.Log("45: " + _posX45.GetLength(0) + " " + _posX45.GetLength(1));
-
-        //Vector3 expected = new Vector3(0, 0, 1);
-        //Vector2 polar = CartesianToPolarCoordinates(expected);
-        //float sinLat = Mathf.Sin(polar.y * Mathf.Deg2Rad);
-        //Vector3 actual = new Vector3(
-        //    sinLat * Mathf.Sin(polar.x * Mathf.Deg2Rad),
-        //    Mathf.Cos(polar.y * Mathf.Deg2Rad),
-        //    sinLat * Mathf.Cos(polar.x * Mathf.Deg2Rad));
-
-        //Debug.Log("Lng/Lat: " + polar + " Expected vs Actual: " + expected + " " + actual);
-
-        //expected = new Vector3(0, 1, 0);
-        //polar = CartesianToPolarCoordinates(expected);
-        //sinLat = Mathf.Sin(polar.y * Mathf.Deg2Rad);
-        //actual = new Vector3(
-        //    sinLat * Mathf.Sin(polar.x * Mathf.Deg2Rad),
-        //    Mathf.Cos(polar.y * Mathf.Deg2Rad),
-        //    sinLat * Mathf.Cos(polar.x * Mathf.Deg2Rad));
-
-        //Debug.Log("Lng/Lat: " + polar + " Expected vs Actual: " + expected + " " + actual);
-
-        //expected = new Vector3(1, 0, 0);
-        //polar = CartesianToPolarCoordinates(expected);
-        //sinLat = Mathf.Sin(polar.y * Mathf.Deg2Rad);
-        //actual = new Vector3(
-        //    sinLat * Mathf.Sin(polar.x * Mathf.Deg2Rad),
-        //    Mathf.Cos(polar.y * Mathf.Deg2Rad),
-        //    sinLat * Mathf.Cos(polar.x * Mathf.Deg2Rad));
-
-        //Debug.Log("Lng/Lat: " + polar + " Expected vs Actual: " + expected + " " + actual);
-
+        _ButtonClear.onClick.AddListener(OnClickClear);
+        _ButtonCapture.onClick.AddListener(OnClickCapture);
+        _ButtonExport.onClick.AddListener(OnClickButtonExport);
+        _TogglePause.onValueChanged.AddListener(value => OnValueChangedPause(value));
 
     }
 
-    private void onClickButtonExport()
+    private void OnClickButtonExport()
     {
-        exportFaces();
+        ExportFaces();
     }
 
-    private void onClickCapture()
+    private void OnClickCapture()
     {
         //updateCubemap();
         WriteToTexture();
     }
 
-    private void onClickClear()
+    private void OnClickClear()
     {
         _posX = GetNew2DArray(_CubeSize, _CubeSize, new Vector3(-1, -1, -1));
         _negX = GetNew2DArray(_CubeSize, _CubeSize, new Vector3(-1, -1, -1));
@@ -156,17 +96,10 @@ public class TangoCubemap : MonoBehaviour
         _posZ = GetNew2DArray(_CubeSize, _CubeSize, new Vector3(-1, -1, -1));
         _negZ = GetNew2DArray(_CubeSize, _CubeSize, new Vector3(-1, -1, -1));
 
-        _posXMin = GetNew2DArray(_CubeSize, _CubeSize, float.MaxValue);
-        _negXMin = GetNew2DArray(_CubeSize, _CubeSize, float.MaxValue);
-        _posYMin = GetNew2DArray(_CubeSize, _CubeSize, float.MaxValue);
-        _negYMin = GetNew2DArray(_CubeSize, _CubeSize, float.MaxValue);
-        _posZMin = GetNew2DArray(_CubeSize, _CubeSize, float.MaxValue);
-        _negZMin = GetNew2DArray(_CubeSize, _CubeSize, float.MaxValue);
-
         _dirtyPixels = 0;
     }
 
-    private void onValueChangedPause(bool val)
+    private void OnValueChangedPause(bool val)
     {
         _paused = val;
     }
@@ -178,12 +111,12 @@ public class TangoCubemap : MonoBehaviour
         return nums;
     }
 
-    private float mod(float a, float b)
+    private float Mod(float a, float b)
     {
         return a - b * Mathf.Floor(a / b);
     }
 
-    private CubemapFace intToCubemapFace(int i)
+    private CubemapFace IntToCubemapFace(int i)
     {
         switch (i)
         {
@@ -212,7 +145,7 @@ public class TangoCubemap : MonoBehaviour
         return new Vector2(lon, lat);
     }
 
-    private void decrementDirtyArray(int[,] arr) {
+    private void DecrementDirtyArray(int[,] arr) {
         for (int i = 0; i < arr.GetLength(0); i++)
         {
             for (int j = 0; j < arr.GetLength(1); j++)
@@ -224,7 +157,7 @@ public class TangoCubemap : MonoBehaviour
         }
     }
 
-    private void exportFaces()
+    private void ExportFaces()
     {
         string dataPath = "/";
 #if UNITY_ANDROID && !UNITY_EDITOR
@@ -297,7 +230,6 @@ public class TangoCubemap : MonoBehaviour
 
         v /= d[greatestIndex];
 
-        float t = 1 - 0.65f;
         float luma = ImageProcessing.Grayscale(color);
         switch (greatestIndex)
         {
@@ -310,10 +242,7 @@ public class TangoCubemap : MonoBehaviour
                     {
                         _dirtyPixels++;
                     }
-                    
-                    if (luma < _posXMin[x, y]) {
-                        _posXMin[x, y] = luma; 
-                    }
+
 
                     posX[x, y] = color;
                 }
@@ -325,10 +254,6 @@ public class TangoCubemap : MonoBehaviour
                         
                     }
 
-                    if (luma < _negXMin[_CubeSize - 1 - x, y])
-                    {
-                        _negXMin[_CubeSize - 1 - x, y] = luma;
-                    }
 
                     negX[_CubeSize - 1 - x, y] = color;
                 }
@@ -344,11 +269,6 @@ public class TangoCubemap : MonoBehaviour
                         
                     }
 
-                    if (luma < _posYMin[x, y])
-                    {
-                        _posYMin[x, y] = luma;
-                    }
-
                     posY[x, y] = color;
                 }
                 else
@@ -358,11 +278,6 @@ public class TangoCubemap : MonoBehaviour
                     {
                         _dirtyPixels++;
                         
-                    }
-
-                    if (luma < _negYMin[x, _CubeSize - 1 - y])
-                    {
-                        _negYMin[x, _CubeSize - 1 - y] = luma;
                     }
 
                     negY[x, _CubeSize - 1 - y] = color;
@@ -380,10 +295,6 @@ public class TangoCubemap : MonoBehaviour
                         
                     }
 
-                    if (luma < _posZMin[_CubeSize - 1 - x, y])
-                    {
-                        _posZMin[_CubeSize - 1 - x, y] = luma;
-                    }
 
                     posZ[_CubeSize - 1 - x, y] = color;
                 }
@@ -395,10 +306,7 @@ public class TangoCubemap : MonoBehaviour
                         
                     }
 
-                    if (luma < _negZMin[x, y])
-                    {
-                        _negZMin[x, y] = luma;
-                    }
+
 
                     negZ[x, y] = color;
                 }
@@ -407,6 +315,11 @@ public class TangoCubemap : MonoBehaviour
 
     }
 
+    /// <summary>
+    /// Converts polar (spherical) coordinats to cartesian coordinates.
+    /// </summary>
+    /// <param name="polar"></param>
+    /// <returns>The vector3 cartesian coordinate.</returns>
     public static Vector3 PolarToCartesian(Vector2 polar)
     {
         float sinLat = Mathf.Sin(polar.y * Mathf.Deg2Rad);
@@ -529,6 +442,9 @@ public class TangoCubemap : MonoBehaviour
     public void UpdateCubeArrays(Vector3[,] pixels)
     {
         if (_paused) return;
+
+        //onClickClear();
+
         for (int i = 1; i < _CubeSize - 1; i++)
         {
             for (int j = 1; j < _CubeSize - 1; j++)
@@ -544,10 +460,6 @@ public class TangoCubemap : MonoBehaviour
                 //Debug.DrawRay(Camera.main.transform.position, ray.direction, ImageProcessing.Vector3ToColor(c / 255f));
 
                 SetColor(ray.direction.normalized, c / 255f, _posX, _negX, _posY, _negY, _posZ, _negZ);
-                if (_45DegreeCube) {
-                    SetColor(Quaternion.Euler(0, -45, 0) * ray.direction.normalized, c / 255f, 
-                        _posX45, _negX45, _posY45, _negY45, _posZ45, _negZ45);
-                }
             }
         }
 
@@ -560,6 +472,7 @@ public class TangoCubemap : MonoBehaviour
 
         _fillPercentage = _dirtyPixels / (float)(_CubeSize * _CubeSize * 6) * 100;
         _TextFillPercentage.text = "Fill: " + _fillPercentage + "%";
+
     }
 
 

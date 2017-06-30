@@ -95,9 +95,6 @@ public class CubeLightManager : MonoBehaviour, ITangoVideoOverlay, ITangoLifecyc
                 _TangoCube._posX, _TangoCube._negX,
                 _TangoCube._posY, _TangoCube._negY,
                 _TangoCube._posZ, _TangoCube._negZ,
-                _TangoCube._posXMin, _TangoCube._negXMin,
-                _TangoCube._posYMin, _TangoCube._negYMin,
-                _TangoCube._posZMin, _TangoCube._negZMin,
                 transform.position, _clusterAngle);
 
             _LightA.transform.position = lightDir[lightDir.Count - 1]._Direction.normalized * 100;
@@ -139,53 +136,6 @@ public class CubeLightManager : MonoBehaviour, ITangoVideoOverlay, ITangoLifecyc
             return;
         }
 
-        //if (_TangoCube._45DegreeCube)
-        //{
-        //    //Vector3 lightDir45 = LightEstimationCube.EstimateLightDir(
-        //    //    _TangoCube._posX45, _TangoCube._negX45,
-        //    //    _TangoCube._posY45, _TangoCube._negY45,
-        //    //    _TangoCube._posZ45, _TangoCube._negZ45,
-        //    //    transform.position);
-
-        //    //_LightA.position = (lightDir.normalized * 100 + Quaternion.Euler(0, 45, 0) * lightDir45.normalized * 100) / 2f;
-        //    //_LightA.LookAt(transform.position);
-        //    //_LightDirGizmo.rotation = _LightA.rotation;
-
-        //    List<Vector3> lightDir45 = LightEstimationCube.EstimateLightDir(
-        //        _TangoCube._posX, _TangoCube._negX,
-        //        _TangoCube._posY, _TangoCube._negY,
-        //        _TangoCube._posZ, _TangoCube._negZ,
-        //        _TangoCube._posX45, _TangoCube._negX45,
-        //        _TangoCube._posY45, _TangoCube._negY45,
-        //        _TangoCube._posZ45, _TangoCube._negZ45,
-        //        transform.position, _clusterAngle);
-
-        //    lightDir45.Sort((a, b) => a.magnitude.CompareTo(b.magnitude));
-
-        //    _LightA.position = lightDir45[lightDir45.Count - 1].normalized * 100;
-        //    _LightA.LookAt(transform.position);
-        //    _LightDirGizmoA.rotation = _LightA.rotation;
-
-        //    //_LightA.position = lightDir45.normalized * 100;
-        //    //_LightA.LookAt(transform.position);
-        //    //_LightDirGizmo.rotation = _LightA.rotation;
-        //}
-        //else
-        //{
-        //    List<Vector3> lightDirs = LightEstimationCube.EstimateLightDir(
-        //    _TangoCube._posX, _TangoCube._negX,
-        //    _TangoCube._posY, _TangoCube._negY,
-        //    _TangoCube._posZ, _TangoCube._negZ,
-        //    transform.position, _clusterAngle);
-
-        //    lightDirs.Sort((a, b) => a.magnitude.CompareTo(b.magnitude));
-
-        //    _LightA.position = lightDirs[lightDirs.Count - 1].normalized * 100;
-        //    _LightA.LookAt(transform.position);
-        //    _LightDirGizmoA.rotation = _LightA.rotation;
-        //}
-
-        
     }
 
     #region Tango Events
